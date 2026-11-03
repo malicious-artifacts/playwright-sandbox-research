@@ -74,8 +74,49 @@ authoritative records instead: NVD describes CVE-2026-118306 as allowing
 
 **Control job** (`impact-demo-blocked`): the same chain under harden-runner
 block mode with a minimal allowlist — the C2 beacon must fail — plus a
-sandbox-ENABLED launch audit (`Seccomp: 2` on renderers) showing the
-configuration-level fix.
+sandbox-ENABLED launch audit showing the configuration-level fix and its limits.
+
+## Phase 2 results (runs 41621411953 / 41620503227 — both green)
+
+**Audit job (attack executes end-to-end):**
+- fingerprint: `build 156.0.8078.4 => VULNERABLE TARGET (Oct 2026 criticals unpatched)`
+- at trigger time: renderer `Seccomp=0` (`--no-sandbox`) — no sandbox present
+- payload: all three decoy credentials read; **C2 beacon succeeded (HTTP 200)**
+
+**Block job (containment):**
+- identical chain, egress-policy `block` with setup-only allowlist
+- setup (npm, browser download, apt) allowed; **C2 beacon `ECONNREFUSED`** —
+  the exfil channel is contained by policy while the pipeline still works
+
+**Mitigation friction finding:** `chromium.launch({ chromiumSandbox: true })`
+**fails to launch** on stock ubuntu-24.04 runners — the Chromium sandbox needs
+unprivileged user namespaces, which Ubuntu 24.04 restricts via AppArmor.
+Enabling the sandbox in CI requires sysctl/AppArmor changes or Playwright's
+seccomp profile; it is not a one-line fix.
+
+## CVE-2026-118306 characterization (public patch diff, advisory-grade)
+
+Diffing the public Chromium tags `156.0.8078.4 → 156.0.8078.73` localizes the
+FileSystem fixes to the **browser-process** FileSystem Access manager
+(`content/browser/file_system_access/`):
+
+1. **Destructor re-entrancy hardening** in `FileSystemAccessManagerImpl`:
+   weak-pointer invalidation and one-by-one draining of writer/access-handle
+   receivers "so that releasing locks cannot re-entrantly mutate a set while
+   it is being destroyed" — a use-after-free/iterator-invalidation class fix.
+2. **New path validation** (`IsValidRootPath`, `IsPlainRelativePath`) on
+   deserialized handle tokens: rejects `..`, absolute paths, and `.`-aliases;
+   the patch comment documents that `.`-prefixed paths could previously
+   **alias without sharing locks** (ObfuscatedFileUtil strips `.`,
+   FileSystemAccessLockManager preserves it).
+
+**Assessment:** memory corruption in an unsandboxed browser-process service,
+reachable with renderer-controlled File System Access data — i.e. a genuine
+renderer→browser sandbox-escape primitive, corroborating NVD's "execute
+arbitrary code outside the sandbox" wording and the Critical rating. Under
+Playwright defaults this CVE is redundant (there is no sandbox to escape); it
+matters for sandboxed embedders (e.g. agent runtimes). Analysis stops at this
+characterization — no exploit primitive is developed here.
 
 ## Safety
 
