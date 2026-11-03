@@ -37,8 +37,8 @@ jobs:
       - name: Report installed browser versions
         run: |
           ls "$HOME/.cache/ms-playwright"
-          "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux/chrome --version || true
-          "$HOME"/.cache/ms-playwright/chromium_headless_shell-*/chrome-linux/headless_shell --version || true
+          "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux64/chrome --version || true
+          "$HOME"/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell --version || true
 
       - name: Sandbox audit (default launch options)
         run: node scripts/02-sandbox-audit.js

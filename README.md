@@ -36,6 +36,21 @@ Chromium sandbox by default.
 - Check older Playwright pins too — per nisten's thread, older releases bundle
   older Chromium and may miss more fixes.
 
+## Phase 1 results (run 41616754224, 2026-11-03)
+
+| Claim | Verdict | Evidence |
+|---|---|---|
+| playwright@1.64.1 bundles a vulnerable Chromium | **CONFIRMED** | `browsers.json` pins chromium + chromium-headless-shell rev 1248 = **156.0.8078.4** (UA-verified); the four CVEs are fixed only in **156.0.8078.73** ([Chrome Stable 2026-10-27](https://chromereleases.googleblog.com/2026/10/stable-channel-update-for-desktop_0562499947.html)) |
+| Playwright disables the Chromium sandbox by default | **CONFIRMED** | default `chromium.launch()`: every process incl. renderers runs `--no-sandbox` with `Seccomp: 0`; network utility runs `--service-sandbox-type=none`. Same for headless-shell and full Chromium builds |
+| "The bug escapes the sandbox" / achieves RCE | **CREDIBLE — NOT REPRODUCED** | CVE-2026-118306 (Critical, FileSystem memory corruption) and CVE-2026-118331 (Critical, FileAPI input validation) are described as allowing code execution *outside* the sandbox. Under Playwright defaults there is no sandbox to escape, so any working renderer exploit = host RCE. No public PoC exists; we did not attempt weaponization |
+
+**Answers to the review questions:**
+1. *Does this happen with the playwright npm package?* **Yes** — the package itself is clean, but it pins the browser build, and `npx playwright install` fetches vulnerable 156.0.8078.4.
+2. *Does this achieve RCE?* **Structurally yes under default config** (sandbox off + critical CVEs in pinned build); not demonstrated with a working exploit here.
+
+Harden-runner egress insights for this run:
+https://app.stepsecurity.io/github/malicious-artifacts/playwright-sandbox-research/actions/runs/41616754224
+
 ## Safety
 
 No exploit development happens in this repo. It only inspects versions, process
