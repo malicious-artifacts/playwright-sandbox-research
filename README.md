@@ -51,6 +51,32 @@ Chromium sandbox by default.
 Harden-runner egress insights for this run:
 https://app.stepsecurity.io/github/malicious-artifacts/playwright-sandbox-research/actions/runs/41616754224
 
+## Phase 2 — impact-chain PoC (`poc/`, workflow `poc-impact.yml`)
+
+An end-to-end demonstration of the attack chain with **one explicitly simulated
+step**. What is real vs simulated:
+
+| Stage | Status |
+|---|---|
+| Delivery: victim browser (Playwright defaults) visits attacker-controlled page | **REAL** (localhost stand-in site) |
+| Targeting: page fingerprints the build, confirms 156.0.8078.4 is vulnerable | **REAL** (`poc/attacker-page.html`) |
+| Renderer memory-corruption trigger (CVE-2026-118306 etc.) | **SIMULATED — deliberately not reproduced** |
+| Post-exploitation: credential access (`~/.ssh`, `~/.aws`, `.env`) | **REAL, decoy values only** (`poc/payload.js`) |
+| C2 egress beacon | **REAL, dummy data to a public echo endpoint** |
+
+**Why the trigger is not reproduced:** the pinned builds are unpatched in the
+wild, three of the older-pin CVEs are CISA KEV (exploitation already confirmed
+by CISA — exploitability is not in question for those), and no public PoC
+exists. Publishing a weaponized exploit would arm attackers against every user
+still on unpatched pinned builds. The trigger's feasibility is assessed from
+authoritative records instead: NVD describes CVE-2026-118306 as allowing
+"arbitrary code execution **outside** the sandbox".
+
+**Control job** (`impact-demo-blocked`): the same chain under harden-runner
+block mode with a minimal allowlist — the C2 beacon must fail — plus a
+sandbox-ENABLED launch audit (`Seccomp: 2` on renderers) showing the
+configuration-level fix.
+
 ## Safety
 
 No exploit development happens in this repo. It only inspects versions, process

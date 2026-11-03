@@ -87,4 +87,8 @@ async function audit(label, opts = {}) {
   }
   await audit('default options (headless)');
   await audit('full chromium build', { channel: 'chromium' });
+  if (process.env.AUDIT_SANDBOX_ON === '1') {
+    // Contrast pass: the same launch with the sandbox actually enabled.
+    await audit('sandbox ENABLED (chromiumSandbox: true)', { chromiumSandbox: true });
+  }
 })();

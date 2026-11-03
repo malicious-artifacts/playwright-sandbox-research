@@ -2,4 +2,6 @@ node_modules/
 test-results/
 playwright-report/
 .cache/
+.demo-state/
+.env
 *.log

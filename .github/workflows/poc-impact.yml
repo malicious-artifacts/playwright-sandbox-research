@@ -1,0 +1,86 @@
+name: poc-impact-chain
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "poc/**"
+      - ".github/workflows/poc-impact.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  # Job 1 — full attack chain under harden-runner AUDIT mode:
+  # every egress/event is recorded, nothing is blocked.
+  impact-demo-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner (audit)
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install playwright@1.64.1 and bundled Chromium
+        run: |
+          npm install --no-fund --no-audit
+          npx playwright install chromium --with-deps
+
+      - name: Plant decoy credentials (clearly fake values)
+        run: |
+          mkdir -p "$HOME/.ssh" "$HOME/.aws"
+          printf 'FAKE RSA KEY FOR RESEARCH DEMO - NOT A REAL CREDENTIAL\n' > "$HOME/.ssh/id_rsa"
+          printf '[default]\naws_access_key_id=AKIARESEARCHDEMO0000\naws_secret_access_key=FAKE-DEMO\n' > "$HOME/.aws/credentials"
+          printf 'OPENAI_API_KEY=sk-RESEARCH-DEMO-FAKE\n' > .env
+
+      - name: Run impact-chain demo (attacker page -> simulated trigger -> payload)
+        run: node poc/run-demo.js
+
+  # Job 2 — CONTROL: the same chain under harden-runner BLOCK mode with a
+  # minimal allowlist. Expected outcome: setup egress allowed, C2 beacon
+  # BLOCKED. Also audits a sandbox-ENABLED launch for contrast.
+  impact-demo-blocked:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Harden Runner (block)
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            registry.npmjs.org:443
+            cdn.playwright.dev:443
+            playwright.azureedge.net:443
+            agent.api.stepsecurity.io:443
+            prod.app-api.stepsecurity.io:443
+
+      - uses: actions/checkout@v4
+
+      - name: Install playwright@1.64.1 and bundled Chromium (preinstalled node)
+        run: |
+          npm install --no-fund --no-audit
+          npx playwright install chromium --with-deps
+
+      - name: Plant decoy credentials (clearly fake values)
+        run: |
+          mkdir -p "$HOME/.ssh" "$HOME/.aws"
+          printf 'FAKE RSA KEY FOR RESEARCH DEMO - NOT A REAL CREDENTIAL\n' > "$HOME/.ssh/id_rsa"
+          printf '[default]\naws_access_key_id=AKIARESEARCHDEMO0000\naws_secret_access_key=FAKE-DEMO\n' > "$HOME/.aws/credentials"
+          printf 'OPENAI_API_KEY=sk-RESEARCH-DEMO-FAKE\n' > .env
+
+      - name: Run impact-chain demo under egress block (beacon should FAIL)
+        run: node poc/run-demo.js
+
+      - name: Contrast audit — same browser launched with sandbox ENABLED
+        env:
+          AUDIT_SANDBOX_ON: "1"
+        run: node scripts/02-sandbox-audit.js
