@@ -89,6 +89,15 @@ async function audit(label, opts = {}) {
   await audit('full chromium build', { channel: 'chromium' });
   if (process.env.AUDIT_SANDBOX_ON === '1') {
     // Contrast pass: the same launch with the sandbox actually enabled.
-    await audit('sandbox ENABLED (chromiumSandbox: true)', { chromiumSandbox: true });
+    try {
+      await audit('sandbox ENABLED (chromiumSandbox: true)', { chromiumSandbox: true });
+    } catch (err) {
+      console.log('\n=== launch with sandbox ENABLED FAILED ===');
+      console.log('Expected on stock ubuntu-24.04 runners: the Chromium sandbox needs');
+      console.log('unprivileged user namespaces, which Ubuntu 24.04 restricts via AppArmor.');
+      console.log('Implication: enabling chromiumSandbox is NOT a one-liner fix on default');
+      console.log('CI runners — it needs sysctl/AppArmor changes or Playwright\'s seccomp profile.');
+      console.log('Launch error:', String(err).split('\n')[0]);
+    }
   }
 })();
