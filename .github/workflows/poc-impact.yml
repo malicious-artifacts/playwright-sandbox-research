@@ -60,6 +60,11 @@ jobs:
             registry.npmjs.org:443
             cdn.playwright.dev:443
             playwright.azureedge.net:443
+            storage.googleapis.com:443
+            packages.microsoft.com:443
+            azure.archive.ubuntu.com:80
+            archive.ubuntu.com:80
+            security.ubuntu.com:80
             agent.api.stepsecurity.io:443
             prod.app-api.stepsecurity.io:443
 
